@@ -17,7 +17,7 @@ Outputs (printed for now)
 
 def getMarkers(img):
     # code referenced from https://stackoverflow.com/questions/74964527/attributeerror-module-cv2-aruco-has-no-attribute-dictionary-get 
-    arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
+    arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_1000)
     arucoParams = cv2.aruco.DetectorParameters()
     arucoDetector = cv2.aruco.ArucoDetector(arucoDict, arucoParams)
 
@@ -47,6 +47,10 @@ def main():
         exit()
     while True:
         ret, img = cap.read()
+        
+        # Crop to Robot Specs -- Will need to remove for actual implementation
+        img = img[89:391, 53:587]   
+
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
@@ -66,8 +70,7 @@ def main():
                                 0.00827434, 
                                 -0.136742])
 
-
-        sideLength = 1.6 # cm (units are super unclear so i'm just going with cm)
+        sideLength = 10 # cm (units are super unclear so i'm just going with cm)
         objPoints = np.array([[-sideLength / 2, sideLength / 2,0],
                               [sideLength / 2, sideLength / 2,0],
                               [sideLength / 2, -sideLength / 2,0],
