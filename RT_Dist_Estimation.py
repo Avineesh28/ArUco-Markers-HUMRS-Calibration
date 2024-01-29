@@ -66,7 +66,7 @@ def main():
         
         # Crop to Robot Specs -- Will need to remove for actual implementation
         # img = img[89:391, 53:587]   
-     
+
         corners, ids, rejects = getMarkers(img)
         
         # using camera matrix and distance coefficients from humrs_vrep/humrs_control/config/external_camera_underwater.yaml (pipe_entry branch)
@@ -122,7 +122,9 @@ def main():
             xCenter=int((xTopLeft+xTopRight)/2)
             yCenter=int((yBottomLeft+yTopLeft)/2)
            
-            # print(tvecs) - Was using to debug the distance calibration
+            print(tvecs) 
+            print("XY Dist", xyDist)
+            # - Was using to debug the distance calibration
         
             showMarkers(img,corners,ids,xCenter,yCenter,xyDist,tvecs[0][2])
         cv2.imshow("Camera Feed",img)
