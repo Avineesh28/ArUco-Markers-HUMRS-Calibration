@@ -15,6 +15,8 @@ Outputs (printed for now)
 
 '''
 
+blank_img = 255 * np.ones((480, 640, 3), np.uint8)  # Adjust dimensions as needed
+
 def getMarkers(img):
     # code referenced from https://stackoverflow.com/questions/74964527/attributeerror-module-cv2-aruco-has-no-attribute-dictionary-get 
     arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_1000)
@@ -24,40 +26,49 @@ def getMarkers(img):
     corners, ids, rejects = arucoDetector.detectMarkers(img)
     return (corners, ids, rejects)
 
-def showMarkers(img, corners, ids):
+def showMarkers(img,corners, ids, xCenter, yCenter, xyDist, Ztvecs):
     # assumption: camera frame is 480x640
-    cv2.rectangle(img,(0,240),(160,480),(255,255,255),-1)
-    # (80,240) = tag position = (0,0) for world frame
-    cv2.circle(img,(80,240),2,(0,0,255),-1)
+    cv2.rectangle(blank_img,(0,240),(640,480),(0,255,0),-1)
+    cv2.rectangle(blank_img,(0,0),(640,240),(255,255,255),-1)
+    cv2.circle(blank_img,(320,240),5,(0,0,255),-1)
 
+    cv2.aruco.drawDetectedMarkers(blank_img, corners,ids, borderColor=(0,0,0))
     cv2.aruco.drawDetectedMarkers(img, corners,ids)
-    # cv2.imshow("",img)
+    
+    cv2.circle(blank_img,(xCenter,yCenter),5,(0,0,255),-1)
+    cv2.line(blank_img,(320,240),(xCenter,yCenter),(0,0,0),1)
+    
+    cv2.putText(blank_img,f"XYZ Distance: {int(xyDist)} cm away from tag",(5,10),1,0.75,(0,0,0))
+    cv2.putText(blank_img,f"Lateral Distance: {int(Ztvecs)} cm away from tag",(5,20),1,0.75,(0,0,0))
+    
+    cv2.imshow("Position WRT Camera",blank_img)
 
-def graphPosition(rvec, tvec):
-    pass
+def setMarkerWindow():
+    # assumption: camera frame is 480x640
+    cv2.rectangle(blank_img,(0,240),(640,480),(0,255,0),-1)
+    cv2.rectangle(blank_img,(0,0),(640,240),(255,255,255),-1)
+    cv2.circle(blank_img,(320,240),5,(0,0,255),-1)
+    cv2.imshow("Position WRT Camera",blank_img)
 
 def main():
+    
     cap = cv2.VideoCapture(0)
-    xCoords = [0]
-    yCoords = [0]
-    # plt.plot(xCoords,yCoords)
-
+    setMarkerWindow()
     if not cap.isOpened():
         print("Error: can't open camera")
         exit()
+        
     while True:
         ret, img = cap.read()
-        
-        # Crop to Robot Specs -- Will need to remove for actual implementation
-        img = img[89:391, 53:587]   
-
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
-
+        
+        # Crop to Robot Specs -- Will need to remove for actual implementation
+        # img = img[89:391, 53:587]   
+     
         corners, ids, rejects = getMarkers(img)
-        # showMarkers(img,corners,ids)
-
+        
         # using camera matrix and distance coefficients from humrs_vrep/humrs_control/config/external_camera_underwater.yaml (pipe_entry branch)
         cameraMat = np.array([
             [1.51319600e3,0,1.02309616e+03],
@@ -77,6 +88,7 @@ def main():
                               [-sideLength / 2, -sideLength / 2,0]], dtype=np.float32)
         rvecs = []
         tvecs = []
+        
         for coord in corners:
             success, r, t = cv2.solvePnP(objPoints, coord, cameraMat, distCoeffs, False, cv2.SOLVEPNP_IPPE_SQUARE)
             if success!=1:
@@ -84,9 +96,6 @@ def main():
                 break
             rvecs.append(r)
             tvecs.append(t)
-            
-
-        showMarkers(img,corners,ids)
 
         if len(rvecs)==1 and len(tvecs)==1:
 
@@ -108,25 +117,15 @@ def main():
             avgX = (xTopLeft+xTopRight+xBottomLeft+xBottomRight)/4
             avgY = (yTopLeft+yTopRight+yBottomLeft+yBottomRight)/4
 
-            # unsure about these coordinates; supposed to be tag position in the camera frame
-            cameraFrameCoords = np.array([[avgX],[avgY],[0],[1]])
-
-            # ultimate output: tag position in world frame = (0,0,0), so get camera position in world frame
-            worldCoords = np.matmul(transformMatrix,cameraFrameCoords)
-            print("\n\n\n",worldCoords)
-
-            # everything below was an attempt to visualize the estimation
-            xMag = tvecs[0][0][0]
-            yMag = tvecs[0][1][0]
-
-            xCoord = int(xMag)
-            yCoord = int(yMag)
-
-            xyDist = np.sqrt(xCoord**2+yCoord**2)
-            cv2.circle(img,(80+xCoord,240+yCoord),2,(0,255,0),-1)
-            cv2.putText(img,f"{ xyDist } cm away from tag",(80+xCoord,250+yCoord),1,0.5,(0,0,0))
+            xyDist = np.sqrt(tvecs[0][0] ** 2 + tvecs[0][1] ** 2)
+            
+            xCenter=int((xTopLeft+xTopRight)/2)
+            yCenter=int((yBottomLeft+yTopLeft)/2)
+           
+            # print(tvecs) - Was using to debug the distance calibration
         
-        cv2.imshow("",img)
+            showMarkers(img,corners,ids,xCenter,yCenter,xyDist,tvecs[0][2])
+        cv2.imshow("Camera Feed",img)
 
         if cv2.waitKey(1) == ord('q'):
             break
