@@ -38,7 +38,7 @@ def showMarkers(img,corners, ids, xCenter, yCenter, xyDist, Ztvecs):
     cv2.circle(blank_img,(xCenter,yCenter),5,(0,0,255),-1)
     cv2.line(blank_img,(320,240),(xCenter,yCenter),(0,0,0),1)
     
-    cv2.putText(blank_img,f"XYZ Distance: {int(xyDist)} cm away from tag",(5,10),1,0.75,(0,0,0))
+    cv2.putText(blank_img,f"XY Distance: {int(xyDist)} cm away from tag",(5,10),1,0.75,(0,0,0))
     cv2.putText(blank_img,f"Lateral Distance: {int(Ztvecs)} cm away from tag",(5,20),1,0.75,(0,0,0))
     
     cv2.imshow("Position WRT Camera",blank_img)
