@@ -115,9 +115,6 @@ def main():
             xBottomRight,yBottomRight = corner[2][0], corner[2][1]
             xBottomLeft,yBottomLeft = corner[3][0], corner[3][1]
 
-            avgX = (xTopLeft+xTopRight+xBottomLeft+xBottomRight)/4
-            avgY = (yTopLeft+yTopRight+yBottomLeft+yBottomRight)/4
-
             xyDist = np.sqrt(tvecs[0][0] ** 2 + tvecs[0][1] ** 2)
             
             xCenter=int((xTopLeft + xTopRight + xBottomRight + xBottomLeft)/4)
