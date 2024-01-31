@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 '''
 -----Pose Estimation usign ArUco Tags-----
@@ -71,8 +72,8 @@ def main():
         
         # using camera matrix and distance coefficients from humrs_vrep/humrs_control/config/external_camera_underwater.yaml (pipe_entry branch)
         cameraMat = np.array([
-            [1.51319600e3,0,1.02309616e+03],
-            [0,1.51474234e+03, 7.10080186e+02],
+            [592.30698448, 0, 314.51159249],
+            [0,591.37584641, 234.58324437],
             [0,0,1]])
         
         distCoeffs = np.array([-0.28857924,
@@ -119,14 +120,15 @@ def main():
 
             xyDist = np.sqrt(tvecs[0][0] ** 2 + tvecs[0][1] ** 2)
             
-            xCenter=int((xTopLeft+xTopRight)/2)
-            yCenter=int((yBottomLeft+yTopLeft)/2)
+            xCenter=int((xTopLeft + xTopRight + xBottomRight + xBottomLeft)/4)
+            yCenter=int((yBottomLeft + yTopLeft + yBottomRight + yTopRight)/4)
            
-            print(tvecs) 
+            print(rvecs)
             print("XY Dist", xyDist)
             # - Was using to debug the distance calibration
         
             showMarkers(img,corners,ids,xCenter,yCenter,xyDist,tvecs[0][2])
+            # time.sleep(0.25) - Used for easier readibility of callouts
         cv2.imshow("Camera Feed",img)
 
         if cv2.waitKey(1) == ord('q'):

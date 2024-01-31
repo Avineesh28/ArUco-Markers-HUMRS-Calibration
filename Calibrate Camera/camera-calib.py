@@ -3,16 +3,16 @@ import os
 import numpy as np
 
 # Chess/checker board size, dimensions
-CHESS_BOARD_DIM = (9, 6)
+CHESS_BOARD_DIM = (10, 7)
 
 # The size of squares in the checker board design.
-SQUARE_SIZE = 22  # millimeters (change it according to printed size)
+SQUARE_SIZE = 23  # millimeters (change it according to printed size)
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 
-calib_data_path = "../calib_data"
+calib_data_path = "calib_data"
 CHECK_DIR = os.path.isdir(calib_data_path)
 
 

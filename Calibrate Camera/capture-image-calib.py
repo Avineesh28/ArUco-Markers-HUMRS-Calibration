@@ -1,7 +1,7 @@
 import cv2 as cv
 import os
 
-Chess_Board_Dimensions = (9, 6)
+Chess_Board_Dimensions = (10, 7)
 
 n = 0  # image counter
 
