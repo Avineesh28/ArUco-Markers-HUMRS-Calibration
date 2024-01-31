@@ -71,6 +71,13 @@ def main():
         corners, ids, rejects = getMarkers(img)
         
         # using camera matrix and distance coefficients from humrs_vrep/humrs_control/config/external_camera_underwater.yaml (pipe_entry branch)
+        
+        #Calibration for the camera on the robot
+        # cameraMat = np.array([
+        #     [1.51319600e3,0,1.02309616e+03],
+        #     [0,1.51474234e+03, 7.10080186e+02],
+        #     [0,0,1]])
+
         cameraMat = np.array([
             [592.30698448, 0, 314.51159249],
             [0,591.37584641, 234.58324437],
