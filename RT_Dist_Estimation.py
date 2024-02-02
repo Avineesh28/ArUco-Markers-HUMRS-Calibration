@@ -17,6 +17,7 @@ Outputs (printed for now)
 '''
 
 blank_img = 255 * np.ones((480, 640, 3), np.uint8)  # Adjust dimensions as needed
+read_img = 255 * np.ones((480, 240, 3), np.uint8)  # Adjust dimensions as needed
 
 def getMarkers(img):
     # code referenced from https://stackoverflow.com/questions/74964527/attributeerror-module-cv2-aruco-has-no-attribute-dictionary-get 
@@ -27,22 +28,44 @@ def getMarkers(img):
     corners, ids, rejects = arucoDetector.detectMarkers(img)
     return (corners, ids, rejects)
 
-def showMarkers(img,corners, ids, xCenter, yCenter, xyDist, Ztvecs):
-    # assumption: camera frame is 480x640
-    cv2.rectangle(blank_img,(0,240),(640,480),(0,255,0),-1)
-    cv2.rectangle(blank_img,(0,0),(640,240),(255,255,255),-1)
-    cv2.circle(blank_img,(320,240),5,(0,0,255),-1)
+def showMarkers(img, corners, ids, tvecs):
 
-    cv2.aruco.drawDetectedMarkers(blank_img, corners,ids, borderColor=(0,0,0))
-    cv2.aruco.drawDetectedMarkers(img, corners,ids)
+  setMarkerWindow()
+  # Loop through each detected marker
+  for i in range(len(corners)):
+    # Extract current marker info
+    corner = corners[i]
+    id = ids[i]
+    tvec = tvecs[i]
+
+    xTopLeft, yTopLeft = corner[0][0]
+    xTopRight, yTopRight = corner[0][1]
+    xBottomRight, yBottomRight = corner[0][2]
+    xBottomLeft, yBottomLeft = corner[0][3]
     
-    cv2.circle(blank_img,(xCenter,yCenter),5,(0,0,255),-1)
-    cv2.line(blank_img,(320,240),(xCenter,yCenter),(0,0,0),1)
+    # Calculate center coordinates for the current marker
+    xCenter = (xTopLeft + xTopRight + xBottomLeft + xBottomRight) / 4
+    yCenter = (yTopLeft + yTopRight + yBottomLeft + yBottomRight) / 4
+
+    # Draw the detected marker on the image copy
+    cv2.aruco.drawDetectedMarkers(blank_img, [corner], np.array([id]), borderColor=(0, 0, 0))
+    cv2.aruco.drawDetectedMarkers(img, [corner],np.array([id]))
+
+    # Calculate distance to the marker based on Z-component of translation vector
+    xy_dist = np.sqrt(tvec[0] ** 2 + tvec[1] ** 2)
+
+    # Draw marker information on the image copy
+    cv2.circle(blank_img,(int(xCenter),int(yCenter)),5,(0,0,255),-1)
+    cv2.line(blank_img,(320,240),(int(xCenter),int(yCenter)),(0,0,0),1)
+    cv2.putText(read_img, f"\n==>Marker ID: {id}", (5 , 10 + i * 30), 1, 0.75, (0, 0, 0))
+    cv2.putText(read_img,f"XY Distance: {int(xy_dist)} cm away from tag",(5 , 20 + i * 30), 1, 0.75, (0, 0, 0))
+    cv2.putText(read_img,f"Lateral Distance: {int(tvec[2])} cm away from tag",(5 , 30 + i * 30),1,0.75,(0,0,0))
     
-    cv2.putText(blank_img,f"XY Distance: {int(xyDist)} cm away from tag",(5,10),1,0.75,(0,0,0))
-    cv2.putText(blank_img,f"Lateral Distance: {int(Ztvecs)} cm away from tag",(5,20),1,0.75,(0,0,0))
-    
-    cv2.imshow("Position WRT Camera",blank_img)
+
+  # Display the image with markers and information
+  cv2.imshow("Readings", read_img)
+  cv2.imshow("Position WRT Camera", blank_img)
+  cv2.imshow("Camera Feed", img)
 
 def setMarkerWindow():
     # assumption: camera frame is 480x640
@@ -50,6 +73,9 @@ def setMarkerWindow():
     cv2.rectangle(blank_img,(0,0),(640,240),(255,255,255),-1)
     cv2.circle(blank_img,(320,240),5,(0,0,255),-1)
     cv2.imshow("Position WRT Camera",blank_img)
+    
+    cv2.rectangle(read_img,(0,0),(240,480),(255,255,255),-1)
+    cv2.imshow("Readings", read_img)
 
 def main():
     
@@ -89,50 +115,34 @@ def main():
                                 0.00827434, 
                                 -0.136742])
 
-        sideLength = 10 # cm (units are super unclear so i'm just going with cm)
+        sideLength = 15 # cm ~ Need to adjust with every testing stage for accurate distance calculation
         objPoints = np.array([[-sideLength / 2, sideLength / 2,0],
                               [sideLength / 2, sideLength / 2,0],
                               [sideLength / 2, -sideLength / 2,0],
                               [-sideLength / 2, -sideLength / 2,0]], dtype=np.float32)
-        rvecs = []
-        tvecs = []
+        if len(corners) > 0:  # At least one marker detected
+            rvecs = []
+            tvecs = []
+            for i in range(len(corners)):  # Iterate through each detected marker
+                coord = corners[i]
+                success, rvecs_i, tvecs_i = cv2.solvePnP(objPoints, coord, cameraMat, distCoeffs)
+
+                if success:
+                    rvecs.append(rvecs_i)
+                    tvecs.append(tvecs_i)
+
+            # if len(rvecs)==1 and len(tvecs)==1:
+
+            #     # convert rotation vector to rotation matrix
+            #     rmat,jacobian = cv2.Rodrigues(rvecs[0])
+            #     res = np.concatenate((rmat,tvecs[0]),axis=1)
+            #     fullres = np.concatenate((res,np.array([[0,0,0,1]])),axis=0)
+                
+            #     # this is the important matrix
+            #     transformMatrix = np.linalg.inv(fullres)
         
-        for coord in corners:
-            success, r, t = cv2.solvePnP(objPoints, coord, cameraMat, distCoeffs, False, cv2.SOLVEPNP_IPPE_SQUARE)
-            if success!=1:
-                print("something went wrong?")
-                break
-            rvecs.append(r)
-            tvecs.append(t)
+            showMarkers(img, corners, ids, tvecs)  # Display all detected markers
 
-        if len(rvecs)==1 and len(tvecs)==1:
-
-            # convert rotation vector to rotation matrix
-            rmat,jacobian = cv2.Rodrigues(rvecs[0])
-            res = np.concatenate((rmat,tvecs[0]),axis=1)
-            fullres = np.concatenate((res,np.array([[0,0,0,1]])),axis=0)
-            
-            # this is the important matrix
-            transformMatrix = np.linalg.inv(fullres)
-
-            #get camera frame coord for center of tag
-            corner = corners[0][0] #just one tag at a time
-            xTopLeft, yTopLeft = corner[0][0], corner[0][1]
-            xTopRight,yTopRight = corner[1][0], corner[1][1]
-            xBottomRight,yBottomRight = corner[2][0], corner[2][1]
-            xBottomLeft,yBottomLeft = corner[3][0], corner[3][1]
-
-            xyDist = np.sqrt(tvecs[0][0] ** 2 + tvecs[0][1] ** 2)
-            
-            xCenter=int((xTopLeft + xTopRight + xBottomRight + xBottomLeft)/4)
-            yCenter=int((yBottomLeft + yTopLeft + yBottomRight + yTopRight)/4)
-           
-            print(rvecs)
-            print("XY Dist", xyDist)
-            # - Was using to debug the distance calibration
-        
-            showMarkers(img,corners,ids,xCenter,yCenter,xyDist,tvecs[0][2])
-            # time.sleep(0.25) - Used for easier readibility of callouts
         cv2.imshow("Camera Feed",img)
 
         if cv2.waitKey(1) == ord('q'):
