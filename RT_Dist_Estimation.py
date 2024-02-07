@@ -109,7 +109,7 @@ def main():
             transformMatrix = np.linalg.inv(fullres)
 
             #get camera frame coord for center of tag
-            corner = corners[0][0] #just one tag at a time
+            corner = corners[0][0] # just one tag at a time
             xTopLeft, yTopLeft = corner[0][0], corner[0][1]
             xTopRight,yTopRight = corner[1][0], corner[1][1]
             xBottomRight,yBottomRight = corner[2][0], corner[2][1]
@@ -122,9 +122,10 @@ def main():
             
             xCenter=int((xTopLeft + xTopRight + xBottomRight + xBottomLeft)/4)
             yCenter=int((yBottomLeft + yTopLeft + yBottomRight + yTopRight)/4)
-           
-            print(rvecs)
-            print("XY Dist", xyDist)
+
+            print (corners)
+            # print(rvecs)
+            # print("XY Dist", xyDist)
             # - Was using to debug the distance calibration
         
             showMarkers(img,corners,ids,xCenter,yCenter,xyDist,tvecs[0][2])
