@@ -1,14 +1,113 @@
+# !/usr/bin/env
 import rospy
+import rospkg
 import cv2
 import numpy as np
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Vector3, Quaternion, Pose
+from mvextractor.videocap import VideoCap
 
+class camera():
+  def __init__(self,rtsp_url):        
+    #load pipe for data transmittion to the process
+    self.parent_conn, child_conn = mp.Pipe()
+    #figure out how big the frames coming in will be
+    cap = VideoCap()
+    cap.open(rtsp_url)   
+    ret = False
+    while not ret:
+      cap.grab()
+      ret,frame,_,_,timestamp=cap.retrieve()
+    cap.release()
+    self.frame_shape=frame.shape
+    self.frame_dtype=frame.dtype
+    self.shared_array = sharedctypes.RawArray(np.ctypeslib.as_ctypes_type(self.frame_dtype), int(np.prod(self.frame_shape)))
+    self.frame_buffer=np.frombuffer(self.shared_array, dtype=self.frame_dtype).reshape(self.frame_shape)
+    #load process
+    self.p = mp.Process(target=self.update, args=(child_conn,rtsp_url,self.shared_array,self.frame_dtype,self.frame_shape))        
+    #start process
+    self.p.daemon = True
+    self.p.start()
+
+  def end(self):
+    #send closure request to process
+
+    self.parent_conn.send((2,None))
+    
+  def update(self,conn,rtsp_url,shared_array,frame_dtype,frame_shape):
+    #load cam into seperate process
+    buffer=np.frombuffer(shared_array, dtype=frame_dtype).reshape(frame_shape)
+    print("Cam Loading...")
+    cap = VideoCap()
+    cap.open(rtsp_url)   
+    print("Cam Loaded...")
+    run = True
+    cap.grab()
+    ret,frame,_,_,timestamp=cap.retrieve()
+    while run:
+
+      #recieve input data
+      if conn.poll():
+        rec_dat = conn.recv()
+      else:
+        rec_dat=3
+
+
+      if rec_dat == 1:
+        #if frame requested
+        while not ret:
+          cap.grab()
+          ret,frame,_,_,timestamp=cap.retrieve()
+        np.copyto(buffer,frame)
+        conn.send((timestamp))
+        ret=False
+
+      elif rec_dat ==2:
+        #if close requested
+        cap.release()
+        run = False
+      else:
+        cap.grab()
+        ret,frame,_,_,timestamp=cap.retrieve()
+    print("Camera Connection Closed")        
+    conn.close()
+
+  def get_frame(self,resize=None):
+    #used to grab frames from the cam connection process
+    #[resize] param : % of size reduction or increase i.e 0.65 for 35% reduction  or 1.5 for a 50% increase
+
+    #send request
+    self.parent_conn.send(1)
+    timestamp = self.parent_conn.recv()
+
+    #reset request
+    self.parent_conn.send(0)
+    #resize if needed
+    if resize == None:            
+      return timestamp,self.frame_buffer
+    else:
+      return timestamp,self.rescale_frame(self.frame_buffer,resize)
+
+  def rescale_frame(self,frame, percent=65):
+    return cv2.resize(frame,None,fx=percent,fy=percent) 
+
+rospack = rospkg.RosPack()
+path = rospack.get_path('humrs_control')
+urdf_file = path + '/../urdf/snake.urdf'
 
 blank_img = 255 * np.ones((480, 640, 3), np.uint8)  # Adjust dimensions as needed
 read_img = 255 * np.ones((480, 240, 3), np.uint8)  # Adjust dimensions as needed
 
+def camera_callback(msg):
+  global bgr_copy
+  global img_step
+  global img_stamp
+
+  bgr_copy = np.copy(np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, -1))
+  img_step = msg.step
+  img_stamp = msg.header.stamp.to_sec()
+  
 def getMarkers(img):
   # ArUco marker detection
   arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_1000)
@@ -68,17 +167,21 @@ def setMarkerWindow():
     cv2.imshow("Readings", read_img)
     
 def main():
-    rospy.init_node('aruco_pose_estimator')
+  
+    rospy.init_node('aruco_pose_estimator', anonymous=True)
+    image_sub = rospy.Subscriber('/humrs/camera/image', Image, camera_callback, queue_size=1, buff_size=6220800*2) 
     
-    # Subscriber for camera image
-    image_sub = rospy.Subscriber("/camera/image_raw", Image, image_callback)  
-
+    cam = camera(('rtsp://admin:biorobotics!@192.168.1.64:554/Streaming/Channels/101'))
+    print('Camera is alive?: %d' %(cam.p.is_alive()))
     rospy.spin()
 
 def image_callback(image_msg):
     
     # Publisher for estimated pose
-    pose_publisher = rospy.Publisher("/aruco_pose", Pose, queue_size=10)
+    pose_publisher = rospy.Publisher("/aruco_pose", Pose, queue_size=1)
+    rospy.init_node("position_estimate")
+    
+    # rate=rospy.Rate(1)
     
     bridge = CvBridge()
     cv_image = bridge.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
@@ -90,9 +193,11 @@ def image_callback(image_msg):
                          [0, 1.51474234e+03, 7.10080186e+02],
                          [0, 0, 1]])
     distCoeffs = np.array([-0.28857924, 0.22533772, 0.00165789, 0.00827434, -0.136742])
-    
-
-    sideLength = 10  # cm (adjust based on your marker size)
+    sideLength = 15  # cm (adjust based on your marker size)
+    objPoints = np.array([[-sideLength / 2, sideLength / 2,0],
+                              [sideLength / 2, sideLength / 2,0],
+                              [sideLength / 2, -sideLength / 2,0],
+                              [-sideLength / 2, -sideLength / 2,0]], dtype=np.float32)
     while True:
         if len(corners) > 0:  # At least one marker detected
                 rvecs = []
@@ -104,7 +209,7 @@ def image_callback(image_msg):
                     if success:
                         rvecs.append(rvecs_i)
                         tvecs.append(tvecs_i)
-
+                        
         # Publish pose as a ROS message
         pose_msg = Pose()
         pose_msg.position.x = tvecs[0][0]
@@ -113,6 +218,7 @@ def image_callback(image_msg):
         # Set orientation if needed (using rvecs)
         pose_publisher.publish(pose_msg)
 
+        
         # Visualize markers and pose information (optional for debugging)
         showMarkers(cv_image, corners, ids, tvecs)  # Display all detected markers
 
