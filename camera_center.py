@@ -1,11 +1,5 @@
 import cv2
 import time
-    # # Readings window
-    # cv2.putText(read_img, f"==>Marker ID: {idx}", (5 , 10 + i * 40), 1, 0.75, (0, 0, 0))
-    # cv2.putText(read_img,f"XY Distance: {int(xy_dist)} cm away from tag",(5 , 20 + i * 40), 1, 0.75, (0, 0, 0))
-    # cv2.putText(read_img,f"Lateral Distance: {int(tvec[2])} cm away from tag",(5 , 30 + i * 40),1,0.75,(0,0,0))
-    
-    # cv2.putText(read_img,f"Vector gCWx: {int(gCW[i][0])}i {int(gCW[i][0])}j {int(gCW[i][0])}k",(5 , 40 + i * 40),1,0.75,(0,0,0))
 
 def main():
     
