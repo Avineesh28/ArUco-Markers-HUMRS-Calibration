@@ -52,3 +52,4 @@ Common Chat
 -0.12332388
 -0.12332893
 
+https://docs.google.com/document/d/1Uv0KKX3iH3z27AnKS4qxAi_oaLYiuR0P3FUwTWr_TTQ/edit
